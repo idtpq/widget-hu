@@ -112,7 +112,7 @@
         <div id="sg-hd">
           <div class="sg-hav">K</div>
           <div class="sg-htxt">
-            <div class="sg-hname">Klára — Filmfy 24/7</div>
+            <div class="sg-hname">Klára — Puha Üveg 24/7</div>
             <div class="sg-hsub"><span class="sg-online"></span>puhauveg.site · 24/7</div>
           </div>
           <button id="sg-x">✕</button>
@@ -126,7 +126,7 @@
         <div id="sg-log" role="log" aria-live="polite"></div>
         <div id="sg-qr"></div>
         <div id="sg-ft">
-          <textarea id="sg-ta" rows="1" placeholder="Napište zprávu…"></textarea>
+          <textarea id="sg-ta" rows="1" placeholder="Írjon üzenetet…"></textarea>
           <button id="sg-go">
             <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
@@ -186,32 +186,34 @@
     const t=botText.toLowerCase();
 
     if(ses.paymentLinkSent)return;
-    if(t.includes('přijala jsem objednávku')||t.includes('prijala jsem objednavku'))return;
+    if(t.includes('rögzítettem a rendelést')||t.includes('rendelés rögzítve'))return;
 
     // Druh povrchu — štartová otázka
-    if(t.includes('druh povrchu')||t.includes('jaký druh stolu')||t.includes('jaký povrch')){
+    if(t.includes('milyen felület')||t.includes('felületű az asztala')||t.includes('matt fa, üveg')||t.includes('asztala?')){
       setQR(['Matt fa','Üveg / lakk / fényes','Laminált']);
     // Intenzita
-    } else if(t.includes('intenz')&&!t.includes('rozměr')&&!t.includes('rozmer')){
+    } else if((t.includes('intenz')||t.includes('konyha')||t.includes('nappali')||t.includes('dolgozó'))&&!t.includes('méret')&&!t.includes('cm')){
       setQR(['Intenzív (konyha/gyerekek)','Kevésbé gyakori (dolgozó/nappali)']);
     // Hrúbka
-    } else if(t.includes('1,5mm')&&t.includes('2mm')&&!t.includes('rozmer')&&!ses.price){
+    } else if(t.includes('1,5mm')&&t.includes('2mm')&&!t.includes('méret')&&!t.includes('cm')&&!ses.price){
       setQR(['1,5mm — kedvezőbb ár','2mm — masszívabb']);
     // Rozmery — populárne rozmery ako skratky
-    } else if((t.includes('rozměry v cm')||t.includes('uvedte rozměry')||t.includes('uveďte rozměry')||t.includes('zadejte rozměry'))&&!ses.price){
+    } else if((t.includes('méreteket')||t.includes('méretet')||t.includes('méretek')||t.includes('cm-ben')||t.includes('adja meg a méreteket')||t.includes('asztalt is egyszerre'))&&!ses.price){
       setQR(['80×60 cm','100×80 cm','120×80 cm','140×80 cm','160×90 cm','Más méret']);
     // Okrúhly?
-    } else if((t.includes('kulatý')||t.includes('kulaty')||t.includes('je kulatý')||t.includes('je kulaty'))&&!t.includes('rozmer')){
-      setQR(['Igen, kör alakú','Nem, téglalap']);
+    } else if((t.includes('kör alakú')||t.includes('négyzetes')||t.includes('kerek')||t.includes('kör vagy négyzet'))&&!t.includes('méret')){
+      setQR(['Kör alakú','Négyzet alakú']);
     // Ďalšie stoly?
-    } else if(t.includes('další stoly')||t.includes('dalsi stoly')||t.includes('ještě nějaké')||t.includes('jeste nejake')){
+    } else if(t.includes('további asztal')||t.includes('van még')||t.includes('még egy')||t.includes('másik asztal')){
       setQR(['Igen, van még','Nem, ennyi']);
     // Spôsob platby
-    } else if((t.includes('zaplat')&&(t.includes('jak')||t.includes('způsob')||t.includes('zpusob')))||(t.includes('platb')&&(t.includes('způsob')||t.includes('zpusob')))){
+    } else if((t.includes('fizet')&&(t.includes('hogyan')||t.includes('mód')||t.includes('móddal')))||t.includes('fizetési mód')||t.includes('online bankkártyával')||t.includes('utánvéttel')){
       setQR(['💳 Online (bankkártyával)','🚚 Utánvét']);
     // Všeobecná otázka
-    } else if(t.includes('mám otázku')||t.includes('jak vám mohu')||t.includes('s čím')){
-      setQR(['Chci objednat','Kérdésem van k produktu']);
+    } else if(t.includes('kérdésem van')||t.includes('miben segíthetek')||t.includes('segíthetek')){
+      setQR(['Szeretnék rendelni','Kérdésem van a termékről']);
+    } else if(t.includes('téglalap alakú')){
+      setQR(['Igen, téglalap','Nem, más forma']);
     }
   }
 
@@ -226,12 +228,12 @@
     const w=document.createElement('div');
     w.id='sg-pay-state';w.className='sg-pay-loading';
     w.innerHTML=
-      '<div class="sg-pay-loading-top">Připravuji bezpečný odkaz na platbu. Obvykle to trvá pár sekund.</div>'+
+      '<div class="sg-pay-loading-top">Előkészítem a biztonságos fizetési linket. Ez általában pár másodperc.</div>'+
       '<div class="sg-pay-loading-btn">'+
         '<span class="sg-pay-loading-spinner"></span>'+
         '<span class="sg-pay-amount">Link generálása '+m(total)+' Ft</span>'+
       '</div>'+
-      '<div class="sg-pay-note">Po vygenerování se zobrazí tlačítko platby bankkártyával.</div>';
+      '<div class="sg-pay-note">A link létrehozása után megjelenik a bankkártyás fizetési gomb.</div>';
     el('sg-log').appendChild(w);scroll();
   }
 
@@ -244,7 +246,7 @@
     w.style.cssText='padding:8px 12px;';
     w.innerHTML=
       '<div style="font-size:13px;color:#374151;margin-bottom:8px;line-height:1.4;">'+
-        'Objednávka <strong>'+SID+'</strong> bude předána ke zpracování po zaplacení.'+
+        'A rendelés <strong>'+SID+'</strong> fizetés után kerül feldolgozásra.'+
       '</div>'+
       '<div style="display:flex;justify-content:center;margin-bottom:4px;">'+
         '<a href="'+url+'" target="_blank" rel="noopener" class="sg-pay-btn" aria-label="Fizetés bankkártyával">'+
@@ -253,7 +255,7 @@
       '</div>'+
       '<div class="sg-pay-note">A fizetés Stripe-on keresztül történik (bankkártya, Google Pay / Apple Pay).</div>'+
       '<div style="font-size:11px;color:#9ca3af;text-align:center;cursor:pointer;margin-top:8px;" onclick="window.__mkChangeToCOD&&window.__mkChangeToCOD('+total+')">'+
-        'Změnit na platbu na utánvétet →'+
+        'Váltás utánvétes fizetésre →'+
       '</div>';
     el('sg-log').appendChild(w);scroll();
 
@@ -271,7 +273,7 @@
     const sidEl=el('sg-sid');
     if(sidEl)sidEl.textContent='Rendelésszám: '+SID;
     const d=document.createElement('div');d.className='sg-cod-box';
-    d.innerHTML='✅ Rendelés rögzítve!<br>Rendelésszám: <strong>'+SID+'</strong><br>Platba na utánvétet: <strong>'+m(total)+' Ft</strong><br>Hamarosan jelentkezünk.';
+    d.innerHTML='✅ Rendelés rögzítve!<br>Rendelésszám: <strong>'+SID+'</strong><br>Utánvétes fizetés: <strong>'+m(total)+' Ft</strong><br>Hamarosan jelentkezünk.';
     el('sg-log').appendChild(d);scroll();
   }
 
@@ -282,7 +284,7 @@
       started=true;showTyping();
       await new Promise(r=>setTimeout(r,600));
       el('sg-log').querySelector('.sg-typing')?.remove();
-      addBot('Jó napot! 👋 Klára vagyok, a Filmfy 24/7 asszisztense.\n\nKevesebb mint egy perc alatt kiszámolom a puha üveg árát az asztalára.\n\nMilyen felületű az asztala?');
+      addBot('Jó napot! 👋 Klára vagyok, a Puha Üveg 24/7 asszisztense.\n\nKevesebb mint egy perc alatt kiszámolom a Puha Üveg árát az asztalára.\n\nMilyen felületű az asztala?');
       addTime();
       setQR(['Matt fa','Üveg / lakk / fényes','Laminált','Kérdésem van']);
     }
@@ -298,7 +300,7 @@
   }
 
   // ── Data extraction ──────────────────────────────────────────────────────
-  // CZ telefon: +420 / 9 číslic
+  // HU telefon: +36 / 06 magyar telefonszám
   function getPhone(t){
     const raw=String(t||'');
     const m=raw.match(/(?:\+36[\s-]?|0036[\s-]?|06[\s-]?)[1-9]\d[\s-]?\d{3}[\s-]?\d{3,4}/);
@@ -310,12 +312,11 @@
   function getEmail(t){const m=t.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);return m?m[0]:null;}
 
   const NOT_NAMES=new Set(['chci','chce','chcem','mám','mam','ano','ne','áno','nie','intenzivně','intenzivne','méně','menej','často','casto','dřevo','drevo','sklo','laminát','laminat','online','utánvét','dobierka','objednávka','objednavka','kulatý','kulaty','okrúhly','okörly','téglalap','obdelnik','obdĺžnik','obdlznik','pevnější','pevnejsie','levnější','lacnejsie','vypočítaj','vypocitaj','jiné','jine','ještě','jeste','iné','ine','ešte','este','či','ci','jak','jaký','jaky','jaká','jaka','jaké','jake','ako','aký','aka','aké','ake','ktoré','ktore','kde','kedy','prosím','prosim','děkuji','dekuji','ďakujem','dakujem','super','dobre','rozumiem','samozrejme','zaujíma','zaujima','ma','sám','sam','radšej','radsej','kontakt','telefonicky','aká','kolko','koľko','stojí','stoji','potrebujem','mám','môj','moj','stůl','stul','stôl','stol','čtverec','ctverec','štvorec','stvorec','hrany','skrinka','kuchyňská','kuchynska','kuchynská','kuchynska']);
-  const ADDR_EXCLUDE=/^(?:🛒\s*)?Chci objednat$|^(?:❓\s*)?Kérdésem van$|^Matt fa$|^Sklo\s*\/\s*lak\s*\/\s*lesk$|^Laminált$|^Intenzivně\s*\(kuchyň\/děti\)$|^Méně často\s*\(pracovna\/obývák\)$|^1,5mm\s*—\s*levnější$|^2mm\s*—\s*pevnější$|^Ano,\s*kulatý$|^Ne,\s*téglalap$|^Ano,\s*mám ještě$|^Ne,\s*to je všechno$|^(?:💳\s*)?Online\s*\(bankkártyával\)$|^(?:🚚\s*)?Utánvét$|^\d{2,4}[×x]\d{2,4}\s*cm$|^Más méret$|^Kérdésem van k produktu$/i;
-
+  const ADDR_EXCLUDE=/^(?:🛒\s*)?Szeretnék rendelni$|^(?:❓\s*)?Kérdésem van$|^Matt fa$|^Üveg\s*\/\s*lakk\s*\/\s*fényes$|^Laminált$|^Intenzív\s*\(konyha\/gyerekek\)$|^Kevésbé gyakori\s*\(dolgozó\/nappali\)$|^1,5mm\s*—\s*kedvezőbb ár$|^2mm\s*—\s*masszívabb$|^Kör alakú$|^Négyzet alakú$|^Igen,\s*van még$|^Nem,\s*ennyi$|^(?:💳\s*)?Online\s*\(bankkártyával\)$|^(?:🚚\s*)?Utánvét$|^\d{2,4}[×x]\d{2,4}\s*cm$|^Más méret$|^Kérdésem van a termékről$/i;
   function normalizeAddressPart(t){
     return String(t||'')
       .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,'')
-      .replace(/(?:\+420[\s-]?|00420[\s-]?|0)?[1-9]\d{2}[\s-]?\d{3}[\s-]?\d{3}/g,'')
+      .replace(/(?:\+36[\s-]?|0036[\s-]?|06[\s-]?)[1-9]\d[\s-]?\d{3}[\s-]?\d{3,4}/g,'')
       .replace(/^[,;\s]+|[,;\s]+$/g,'')
       .replace(/\s+/g,' ')
       .trim();
@@ -327,7 +328,7 @@
     if(getEmail(v)&&normalizeAddressPart(v).length<3)return false;
     if(/^[+\d\s-]{7,}$/.test(v))return false;
     if(/\d{2,3}\s*[xX×]\s*\d{2,3}/.test(v))return false;
-    return /\d{4}|\b(ul\.?|ulica|nám\.?|náměstí|namesti|cesta|třída|trida)\b/i.test(v)||/\d/.test(v);
+    return /\b\d{4}\b|\b(utca|u\.|út|ut|tér|ter|körút|korut|köz|koz|sor|házszám|hazszam)\b/i.test(v)||/\d/.test(v);
   }
 
   function rememberAddressPart(t){
