@@ -19,8 +19,17 @@
     return '№ ' + String(Math.floor(100000 + Math.random() * 900000));
   }
 
-  // формат суми: 41.28 -> "41,28"
-  function m(v){ return String(v==null?'':v).replace('.', ','); }
+  // HUF суми показуємо красиво: 3792.44 -> "3 792"
+  function m(v){
+    const raw=String(v==null?'':v).replace(/\s+/g,'').replace(',', '.');
+    const n=Number(raw);
+    if(!Number.isFinite(n))return String(v==null?'':v);
+    return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+  }
+  function moneyNumber(v){
+    const n=Number(String(v==null?'':v).replace(/\s+/g,'').replace(',', '.'));
+    return Number.isFinite(n)?Math.round(n):0;
+  }
 
   const CSS = `
     #sg-root{position:fixed;bottom:24px;right:24px;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
@@ -65,13 +74,17 @@
     .sg-qbtn{background:#fff;border:1.5px solid #1c3d2e;color:#1c3d2e;border-radius:20px;padding:6px 13px;font-size:13px;cursor:pointer;transition:all .15s;font-family:inherit;line-height:1.3;}
     .sg-qbtn:hover{background:#1c3d2e;color:#fff;}
     .sg-pay-wrap{display:flex;justify-content:center;padding:8px 0;}
-    .sg-pay-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;background:linear-gradient(180deg,#1a1a1a 0%,#0d0d0d 100%);color:#fff;text-decoration:none;padding:13px 18px;border-radius:14px;font-size:16px;font-weight:800;letter-spacing:-0.01em;box-shadow:0 8px 20px rgba(0,0,0,.16);transition:transform .15s,box-shadow .15s,filter .15s;min-width:218px;max-width:100%;border:1.5px solid #171717;}
-    .sg-pay-btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(0,0,0,.20);filter:brightness(1.03);}
-    .sg-pay-btn .sg-pay-amount{font-size:17px;font-weight:900;color:#fff;white-space:nowrap;}
-    .sg-pay-note{font-size:12px;color:#6b7280;text-align:center;margin-top:6px;}
+    .sg-pay-card{margin:8px 12px;padding:12px 12px 13px;border-radius:14px;background:#fff;border:1px solid #e7e2d8;box-shadow:0 3px 12px rgba(0,0,0,.06);}
+    .sg-pay-title{font-size:13px;color:#374151;line-height:1.45;margin-bottom:10px;text-align:center;}
+    .sg-pay-btn{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;background:#1c3d2e;color:#fff;text-decoration:none;padding:12px 14px;border-radius:12px;font-size:14px;font-weight:800;letter-spacing:0;box-shadow:0 6px 14px rgba(28,61,46,.18);transition:transform .15s,box-shadow .15s,filter .15s;width:100%;box-sizing:border-box;border:none;}
+    .sg-pay-btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(28,61,46,.24);filter:brightness(1.03);}
+    .sg-pay-btn .sg-pay-main{font-size:15px;font-weight:800;color:#fff;line-height:1.2;}
+    .sg-pay-btn .sg-pay-amount{font-size:18px;font-weight:900;color:#fff;line-height:1.25;white-space:nowrap;}
+    .sg-pay-note{font-size:11px;color:#6b7280;text-align:center;margin-top:7px;line-height:1.35;}
+    .sg-pay-switch{font-size:12px;color:#6b7280;text-align:center;cursor:pointer;margin-top:10px;text-decoration:underline;text-underline-offset:3px;}
     .sg-pay-loading{margin:8px 12px;padding:14px 14px;border-radius:14px;background:#f7f7f5;border:1px solid #ece7de;}
     .sg-pay-loading-top{font-size:13px;color:#374151;line-height:1.45;margin-bottom:10px;text-align:center;}
-    .sg-pay-loading-btn{display:flex;align-items:center;justify-content:center;gap:10px;min-width:218px;max-width:100%;margin:0 auto;background:linear-gradient(180deg,#1a1a1a 0%,#0d0d0d 100%);color:#fff;border-radius:14px;padding:13px 18px;border:1.5px solid #171717;opacity:.92;}
+    .sg-pay-loading-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:100%;margin:0 auto;background:#1c3d2e;color:#fff;border-radius:12px;padding:12px 14px;border:none;opacity:.92;box-sizing:border-box;}
     .sg-pay-loading-spinner{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.28);border-top-color:#ffffff;animation:sg-spin .8s linear infinite;}
     @keyframes sg-spin{to{transform:rotate(360deg);}}
     .sg-cod-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 14px;font-size:13px;color:#15803d;text-align:center;margin:4px 12px;}
@@ -181,7 +194,9 @@
 
   function detectQR(botText){
     const questionCount=(botText.match(/[?]/g)||[]).length;
-    if(questionCount>1)return;
+    // Навіть якщо бот поставить більше одного знаку питання, кнопки оплати/розмірів все одно мають зʼявитись.
+    const forceButtons = /méret|cm-ben|méreteket|fizet|bankkárty|utánvét/i.test(botText);
+    if(questionCount>1&&!forceButtons)return;
 
     const t=botText.toLowerCase();
 
@@ -198,7 +213,7 @@
     } else if(t.includes('1,5mm')&&t.includes('2mm')&&!t.includes('méret')&&!t.includes('cm')&&!ses.price){
       setQR(['1,5mm — kedvezőbb ár','2mm — masszívabb']);
     // Rozmery — populárne rozmery ako skratky
-    } else if((t.includes('méreteket')||t.includes('méretet')||t.includes('méretek')||t.includes('cm-ben')||t.includes('adja meg a méreteket')||t.includes('asztalt is egyszerre'))&&!ses.price){
+    } else if((t.includes('méreteket')||t.includes('méretet')||t.includes('méretek')||t.includes('méret')||t.includes('cm-ben')||t.includes('centiméter')||t.includes('adja meg a méreteket')||t.includes('asztalt is egyszerre'))&&!ses.price){
       setQR(['80×60 cm','100×80 cm','120×80 cm','140×80 cm','160×90 cm','Más méret']);
     // Okrúhly?
     } else if((t.includes('kör alakú')||t.includes('négyzetes')||t.includes('kerek')||t.includes('kör vagy négyzet'))&&!t.includes('méret')){
@@ -207,8 +222,8 @@
     } else if(t.includes('további asztal')||t.includes('van még')||t.includes('még egy')||t.includes('másik asztal')){
       setQR(['Igen, van még','Nem, ennyi']);
     // Spôsob platby
-    } else if((t.includes('fizet')&&(t.includes('hogyan')||t.includes('mód')||t.includes('móddal')))||t.includes('fizetési mód')||t.includes('online bankkártyával')||t.includes('utánvéttel')){
-      setQR(['💳 Online (bankkártyával)','🚚 Utánvét']);
+    } else if((t.includes('fizet')&&(t.includes('hogyan')||t.includes('mód')||t.includes('móddal')||t.includes('szeretne')))||t.includes('fizetési mód')||t.includes('online bankkárty')||t.includes('bankkártyával')||t.includes('bankkartya')||t.includes('teljes fizetés')||t.includes('előre fizetés')||t.includes('elore fizetes')||t.includes('utánvét')||t.includes('utanvet')){
+      setQR(['💳 Teljes fizetés bankkártyával','🚚 Utánvét']);
     // Všeobecná otázka
     } else if(t.includes('kérdésem van')||t.includes('miben segíthetek')||t.includes('segíthetek')){
       setQR(['Szeretnék rendelni','Kérdésem van a termékről']);
@@ -243,19 +258,16 @@
     if(sidEl)sidEl.textContent='Rendelésszám: '+SID;
     const w=document.createElement('div');
     w.id='sg-pay-state';w.className='sg-pay-ready';
-    w.style.cssText='padding:8px 12px;';
+    w.className='sg-pay-ready sg-pay-card';
     w.innerHTML=
-      '<div style="font-size:13px;color:#374151;margin-bottom:8px;line-height:1.4;">'+
-        'A rendelés <strong>'+SID+'</strong> fizetés után kerül feldolgozásra.'+
-      '</div>'+
-      '<div style="display:flex;justify-content:center;margin-bottom:4px;">'+
-        '<a href="'+url+'" target="_blank" rel="noopener" class="sg-pay-btn" aria-label="Fizetés bankkártyával">'+
-          '<span class="sg-pay-amount">Fizetés '+m(total)+' Ft bankkártyával</span>'+
-        '</a>'+
-      '</div>'+
-      '<div class="sg-pay-note">A fizetés Stripe-on keresztül történik (bankkártya, Google Pay / Apple Pay).</div>'+
-      '<div style="font-size:11px;color:#9ca3af;text-align:center;cursor:pointer;margin-top:8px;" onclick="window.__mkChangeToCOD&&window.__mkChangeToCOD('+total+')">'+
-        'Váltás utánvétes fizetésre →'+
+      '<div class="sg-pay-title">A rendelés <strong>'+SID+'</strong> fizetés után kerül feldolgozásra.</div>'+
+      '<a href="'+url+'" target="_blank" rel="noopener" class="sg-pay-btn" aria-label="Fizetés bankkártyával">'+
+        '<span class="sg-pay-main">Fizetés bankkártyával</span>'+
+        '<span class="sg-pay-amount">'+m(total)+' Ft</span>'+
+      '</a>'+
+      '<div class="sg-pay-note">Biztonságos fizetés Stripe-on keresztül. Bankkártya, Google Pay vagy Apple Pay.</div>'+
+      '<div class="sg-pay-switch" onclick="window.__mkChangeToCOD&&window.__mkChangeToCOD('+moneyNumber(total)+')">'+
+        'Váltás utánvétes fizetésre'+
       '</div>';
     el('sg-log').appendChild(w);scroll();
 
@@ -312,7 +324,7 @@
   function getEmail(t){const m=t.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);return m?m[0]:null;}
 
   const NOT_NAMES=new Set(['chci','chce','chcem','mám','mam','ano','ne','áno','nie','intenzivně','intenzivne','méně','menej','často','casto','dřevo','drevo','sklo','laminát','laminat','online','utánvét','dobierka','objednávka','objednavka','kulatý','kulaty','okrúhly','okörly','téglalap','obdelnik','obdĺžnik','obdlznik','pevnější','pevnejsie','levnější','lacnejsie','vypočítaj','vypocitaj','jiné','jine','ještě','jeste','iné','ine','ešte','este','či','ci','jak','jaký','jaky','jaká','jaka','jaké','jake','ako','aký','aka','aké','ake','ktoré','ktore','kde','kedy','prosím','prosim','děkuji','dekuji','ďakujem','dakujem','super','dobre','rozumiem','samozrejme','zaujíma','zaujima','ma','sám','sam','radšej','radsej','kontakt','telefonicky','aká','kolko','koľko','stojí','stoji','potrebujem','mám','môj','moj','stůl','stul','stôl','stol','čtverec','ctverec','štvorec','stvorec','hrany','skrinka','kuchyňská','kuchynska','kuchynská','kuchynska']);
-  const ADDR_EXCLUDE=/^(?:🛒\s*)?Szeretnék rendelni$|^(?:❓\s*)?Kérdésem van$|^Matt fa$|^Üveg\s*\/\s*lakk\s*\/\s*fényes$|^Laminált$|^Intenzív\s*\(konyha\/gyerekek\)$|^Kevésbé gyakori\s*\(dolgozó\/nappali\)$|^1,5mm\s*—\s*kedvezőbb ár$|^2mm\s*—\s*masszívabb$|^Kör alakú$|^Négyzet alakú$|^Igen,\s*van még$|^Nem,\s*ennyi$|^(?:💳\s*)?Online\s*\(bankkártyával\)$|^(?:🚚\s*)?Utánvét$|^\d{2,4}[×x]\d{2,4}\s*cm$|^Más méret$|^Kérdésem van a termékről$/i;
+  const ADDR_EXCLUDE=/^(?:🛒\s*)?Szeretnék rendelni$|^(?:❓\s*)?Kérdésem van$|^Matt fa$|^Üveg\s*\/\s*lakk\s*\/\s*fényes$|^Laminált$|^Intenzív\s*\(konyha\/gyerekek\)$|^Kevésbé gyakori\s*\(dolgozó\/nappali\)$|^1,5mm\s*—\s*kedvezőbb ár$|^2mm\s*—\s*masszívabb$|^Kör alakú$|^Négyzet alakú$|^Igen,\s*van még$|^Nem,\s*ennyi$|^(?:💳\s*)?Online\s*\(bankkártyával\)$|^(?:💳\s*)?Teljes\s+fizetés\s+bankkártyával$|^(?:🚚\s*)?Utánvét$|^\d{2,4}[×x]\d{2,4}\s*cm$|^Más méret$|^Kérdésem van a termékről$/i;
   function normalizeAddressPart(t){
     return String(t||'')
       .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,'')
@@ -581,7 +593,7 @@
     let total;
     if(pNum>0){
       delivery=pNum>=30000?'gratis':'2360';
-      total=String(delivery==='gratis'?pNum:pNum+2360);
+      total=String(Math.round(delivery==='gratis'?pNum:pNum+2360));
     }else{
       delivery=ses.delivery||'2360';
       total=ses.total||'';
@@ -698,7 +710,7 @@
       const deliveryVal=pNum>0?(pNum>=30000?'gratis':'2360'):(ses.delivery||'2360');
       ses.delivery=deliveryVal;
       const finalTotal=pNum>0
-        ? String(deliveryVal==='gratis'?pNum:pNum+2360)
+        ? String(Math.round(deliveryVal==='gratis'?pNum:pNum+2360))
         : (ses.total||parsedTotal||'');
       ses.total=String(finalTotal);
       const paymentPayload=buildLeadData({product:ses.product||getDimsFallback()||'Měkké sklo',product_formatted:formatProductForTG(),total:finalTotal,payment_method:'stripe',contact:ses.email||ses.phone||ses.contact||''});
@@ -747,7 +759,7 @@
       ses.paymentMethod='cod';
       const pNum=parseFloat(ses.price)||0;
       const deliveryVal=pNum>0?(pNum>=30000?'gratis':'2360'):(ses.delivery||'2360');
-      const total=pNum>0?String(deliveryVal==='gratis'?pNum:pNum+2360):(ses.total||'');
+      const total=pNum>0?String(Math.round(deliveryVal==='gratis'?pNum:pNum+2360)):(ses.total||'');
       ses.delivery=deliveryVal;ses.total=String(total);
       showCOD(total);
       if(ses.leadFired){await fireUpdate('payment_changed_to_cod',{payment_method:'cod',total});}
@@ -807,7 +819,7 @@
         if(ses.paymentMethod==='cod'){
           const pNum=parseFloat(ses.price)||0;
           const deliveryVal=pNum>0?(pNum>=30000?'gratis':'2360'):(ses.delivery||'2360');
-          const total=pNum>0?String(deliveryVal==='gratis'?pNum:pNum+2360):(ses.total||'');
+          const total=pNum>0?String(Math.round(deliveryVal==='gratis'?pNum:pNum+2360)):(ses.total||'');
           ses.delivery=deliveryVal;ses.total=String(total);
           showCOD(total);
           fireLead();
