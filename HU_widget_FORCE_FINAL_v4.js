@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  // HU_PUHA_UVEG_PL_BASE_V22_2026_06_28 — lengyel chatlogika, magyar lokalizáció, 3540 Ft szállítás
+  // HU_PUHA_UVEG_PL_BASE_V24_2026_06_28 — lengyel chatlogika 1:1, magyar lokalizáció, 3540 Ft szállítás, size-limit + buttons fix
 
   const WORKER_URL = 'https://bot-hu.metsukisutemi.workers.dev';
   const ASSISTANT_AVATAR_URL = 'https://static.tildacdn.com/stor3530-6335-4030-b366-363966383437/5efb2fc2ea144f1ae0d2f12885474f78.jpg';
@@ -32,6 +32,44 @@
   function moneyNumber(v){
     const n=Number(String(v==null?'':v).replace(/\s+/g,'').replace(',', '.'));
     return Number.isFinite(n)?Math.round(n):0;
+  }
+
+  const MIN_SIDE_CM = 30;
+  const MAX_SHORT_SIDE_CM = 160;
+  const MAX_LONG_SIDE_CM = 2000;
+  const SIZE_BUTTONS = ['80×60 cm','90×60 cm','100×80 cm','120×80 cm','120×100 cm','140×80 cm','160×90 cm','Több méretem van','Nem tudom pontosan'];
+
+  function dimLimitReason(w,h,isCircle){
+    w=Number(w||0); h=Number(h||w||0);
+    if(!w||!h)return '';
+    if(w<MIN_SIDE_CM||h<MIN_SIDE_CM)return 'a minimum méret 30×30 cm';
+    if(isCircle){
+      if(w>MAX_SHORT_SIDE_CM)return 'kör alaknál a maximális átmérő 160 cm';
+      return '';
+    }
+    const shorter=Math.min(w,h), longer=Math.max(w,h);
+    if(shorter>MAX_SHORT_SIDE_CM)return 'a rövidebb oldal maximum 160 cm lehet';
+    if(longer>MAX_LONG_SIDE_CM)return 'a hosszabb oldal maximum 2000 cm lehet';
+    return '';
+  }
+
+  function invalidSizeMessage(w,h,isCircle){
+    const label=isCircle?('Ø'+w+' cm kör alakú méret'):(w+'×'+h+' cm méret');
+    const reason=dimLimitReason(w,h,isCircle)||'túllépi a megengedett méretet';
+    return 'Ezt a méretet sajnos nem tudjuk elkészíteni.\n\n'+label+': '+reason+'.\n\nKör és négyzet esetén maximum 160 cm készíthető. Téglalapnál a rövidebb oldal max. 160 cm, a hosszabb oldal max. 2000 cm.\n\nKérem adjon meg másik méretet cm-ben.';
+  }
+
+  function findInvalidSizeInText(text){
+    const s=String(text||'');
+    for(const mm of s.matchAll(/(?:kör|átmérő|atmero|[⌀Øø])\s*[⌀Øø]?\s*(\d{2,4})\s*cm?/gi)){
+      const d=parseInt(mm[1],10);
+      if(dimLimitReason(d,d,true))return {w:d,h:d,isCircle:true};
+    }
+    for(const mm of s.matchAll(/(?:^|[^\d.,])(\d{2,4})\s*[xX×х\/]\s*(\d{2,4})(?:\s*cm)?(?![\d.,])/gi)){
+      const w=parseInt(mm[1],10), h=parseInt(mm[2],10);
+      if(dimLimitReason(w,h,false))return {w,h,isCircle:false};
+    }
+    return null;
   }
 
   const CSS = `
@@ -223,7 +261,7 @@ Város:`;
     if(ses.paymentLinkSent)return;
     if(t.includes('rögzítettem a rendelést'))return;
 
-    const asksDelivery=/kérem\s+másolja|másolja\s+ki|töltse\s+ki|név:\s*|telefon:\s*|e-mail:\s*|email:\s*|utca\s+és\s+házszám|irányítószám|város:/i.test(raw);
+    const asksDelivery=/kérem\s+másolja|másolja\s+ki|másolja\s+be|töltse\s+ki|név:\s*|telefon:\s*|e-mail:\s*|email:\s*|utca\s+és\s+házszám|irányítószám|város:|szállítási\s+adatok|szállítási\s+adatait/i.test(raw);
     if(asksDelivery){
       ses.deliveryDataRequested=true;
       ses.orderConfirmed=true;
@@ -231,7 +269,13 @@ Város:`;
       return;
     }
 
-    const isSummary=(/összesítő|rendelési\s+összesítő|megerősíti\s+a\s+rendelést/i.test(raw))&&(/végösszeg|üveg\s+ára|mpl\s+szállítás/i.test(raw));
+    // Rendelési összesítő — lengyel logika szerint ez mindig megerősítés-gombokat kap.
+    // Erős védelem: ha a szövegben ár/összesítő + megerősítés van, ne engedjük, hogy
+    // későbbi kulcsszavak (pl. kör/négyzet) forma-gombokra váltsanak.
+    const isSummary=(
+      /megerősíti\s+a\s+rendelést|rendelést\s+megerősíti|rendelési\s+összesítő|összesítő/i.test(raw) ||
+      ((/üveg\s+ára|mpl\s+szállítás|végösszeg/i.test(raw))&&/ft/i.test(raw))
+    ) && (/végösszeg|üveg\s+ára|mpl\s+szállítás|ft/i.test(raw));
     if(isSummary&&!ses.deliveryDataRequested){
       ses.hasSummary=true;
       setQR(['Igen, megerősítem','Új méret hozzáadása','Méret módosítása','Kérdés a szállításról']);
@@ -262,7 +306,7 @@ Város:`;
     }
 
     if((/adja\s+meg[\s\S]{0,80}méret|méreteket\s+cm-ben|méretet\s+cm-ben|hossz|szélesség|cm-ben/i.test(raw))&&!ses.price){
-      setQR(['80×60 cm','90×60 cm','100×80 cm','120×80 cm','120×100 cm','140×80 cm','160×90 cm','Több méretem van','Nem tudom pontosan']);
+      setQR(SIZE_BUTTONS);
       return;
     }
 
@@ -529,7 +573,7 @@ Város:`;
     const found=[];
     const pushDim=(w,h)=>{
       w=parseInt(w,10);h=parseInt(h,10);
-      if(!(w>=20&&w<=2000&&h>=20&&h<=2000))return;
+      if(dimLimitReason(w,h,false))return;
       found.push(w+'×'+h+' cm');
     };
     // 1) з "cm": 120×80 cm, 81x40 cm
@@ -537,14 +581,18 @@ Város:`;
     // 2) БЕЗ "cm": 120x80, 120 × 80, 120/80, 120 na 80
     for(const mm of userText.matchAll(/(?:^|[^\d.,])(\d{2,4})\s*(?:[xX×х\/]|na)\s*(\d{2,4})(?![\d.,])/gi))pushDim(mm[1],mm[2]);
     // Kör alakú méretek: kör ⌀90, átmérő 90 cm
-    const circles=[...userText.matchAll(/(?:kör|priemer|okr[úu]hl\w*)\s*[⌀]?\s*(\d{2,4})\s*cm?/gi)]
-      .map(mm=>'kör ⌀'+mm[1]+' cm');
+    const circles=[...userText.matchAll(/(?:kör|átmérő|atmero|[⌀Øø])\s*[⌀Øø]?\s*(\d{2,4})\s*cm?/gi)]
+      .map(mm=>parseInt(mm[1],10))
+      .filter(d=>!dimLimitReason(d,d,true))
+      .map(d=>'kör ⌀'+d+' cm');
     let all=[...new Set([...found,...circles])];
     if(ses.circleSize){
-      const d=ses.circleSize;
-      const idx=all.indexOf(d+'×'+d+' cm');
-      if(idx>=0)all[idx]='kör ⌀'+d+' cm';
-      all=[...new Set(all)];
+      const d=parseInt(ses.circleSize,10);
+      if(!dimLimitReason(d,d,true)){
+        const idx=all.indexOf(d+'×'+d+' cm');
+        if(idx>=0)all[idx]='kör ⌀'+d+' cm';
+        all=[...new Set(all)];
+      }
     }
     if(!all.length)return null;
     const th=ses.thickness?(', '+ses.thickness):'';
@@ -800,6 +848,16 @@ Város:`;
     clearSessionTimer();
     addUser(text);showTyping();
 
+    const invalidDirectSize=findInvalidSizeInText(text);
+    if(invalidDirectSize){
+      el('sg-log').querySelector('.sg-typing')?.remove();
+      const msg=invalidSizeMessage(invalidDirectSize.w,invalidDirectSize.h,invalidDirectSize.isCircle);
+      hist.push({role:'user',content:text});
+      hist.push({role:'assistant',content:msg});
+      addBot(msg);addTime();setQR(SIZE_BUTTONS);
+      busy=false;lock(false);el('sg-ta').focus();return;
+    }
+
     if(wantsPhoneContact(text))ses.phoneRequest=true;
     if(/utánvét|utanvet|átvétel|atvetel|futár|futar|készpénz|keszpenz|na utánvétet/i.test(text))ses.paymentMethod='cod';
     if(/online|kártya|kartya|bankkártyával|bankkartyaval|teljes fizetés|teljes fizetes|stripe/i.test(text))ses.paymentMethod='stripe';
@@ -808,8 +866,17 @@ Város:`;
       const allText=hist.map(m=>m.content).join(' ');
       const sameDims=[...allText.matchAll(/(\d{2,3})\s*[xX×]\s*(\d{2,3})\s*cm/g)].filter(m=>m[1]===m[2]);
       if(sameDims.length>0){
-        const d=sameDims[sameDims.length-1][1];
-        ses.circleSize=d;
+        const d=parseInt(sameDims[sameDims.length-1][1],10);
+        const circleReason=dimLimitReason(d,d,true);
+        if(circleReason){
+          el('sg-log').querySelector('.sg-typing')?.remove();
+          const msg=invalidSizeMessage(d,d,true);
+          hist.push({role:'user',content:text});
+          hist.push({role:'assistant',content:msg});
+          addBot(msg);addTime();setQR(SIZE_BUTTONS);
+          busy=false;lock(false);el('sg-ta').focus();return;
+        }
+        ses.circleSize=String(d);
         if(ses.product)ses.product=ses.product.replace(new RegExp(d+'[×x]'+d+'\\s*cm'),'kör ⌀'+d+' cm');
         else ses.product='kör ⌀'+d+' cm';
       }
@@ -851,6 +918,16 @@ Város:`;
       const data=await res.json();
       const reply=data.content?.[0]?.text||'Elnézést, kérem próbálja újra.';
       hist.push({role:'assistant',content:reply});
+
+      const invalidReplySize=findInvalidSizeInText(reply);
+      if(invalidReplySize){
+        const fixedMsg=invalidSizeMessage(invalidReplySize.w,invalidReplySize.h,invalidReplySize.isCircle);
+        hist[hist.length-1]={role:'assistant',content:fixedMsg};
+        el('sg-log').querySelector('.sg-typing')?.remove();
+        addBot(fixedMsg);addTime();setQR(SIZE_BUTTONS);
+        if(!hasContactData())scheduleSessionSave('idle_invalid_size');
+        busy=false;lock(false);el('sg-ta').focus();return;
+      }
 
       const price=getPrice(reply),totalParsed=getTotal(reply),deliveryParsed=getDelivery(reply),product=getProduct(reply),addrBot=getAddressFromBot(reply),nameAddr=getNameFromBotAddress(reply);
       captureThickness(reply);
