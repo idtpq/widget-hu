@@ -1,8 +1,9 @@
 (function () {
   'use strict';
-  // HU_FORCE_FINAL_v4_2026_06_26 — Puha Üveg, quick size/payment buttons, green wide Stripe button
+  // HU_PUHA_UVEG_POLISH_LOGIC_V21_2026_06_28 — lengyel chatlogika, magyar lokalizáció, 3540 Ft szállítás
 
   const WORKER_URL = 'https://bot-hu.metsukisutemi.workers.dev';
+  const SG_AVATAR = 'https://static.tildacdn.com/stor3530-6335-4030-b366-363966383437/5efb2fc2ea144f1ae0d2f12885474f78.jpg';
 
   function getUTM() {
     return {
@@ -47,6 +48,7 @@
     #sg-box.hidden{opacity:0;transform:scale(.95) translateY(8px);pointer-events:none;}
     #sg-hd{background:#1c3d2e;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
     .sg-hav{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0;}
+    .sg-photo{background:#f4e6d6 url("${SG_AVATAR}") center/cover no-repeat!important;color:transparent;font-size:0;box-shadow:0 0 0 2px rgba(255,255,255,.14);}
     .sg-htxt{flex:1;min-width:0;}
     .sg-hname{color:#fff;font-size:14px;font-weight:600;}
     .sg-hsub{color:rgba(255,255,255,.6);font-size:11px;margin-top:2px;display:flex;align-items:center;gap:5px;}
@@ -63,6 +65,7 @@
     .sg-row{display:flex;align-items:flex-end;gap:7px;}
     .sg-row.u{flex-direction:row-reverse;}
     .sg-ava{width:26px;height:26px;border-radius:50%;background:#1c3d2e;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;}
+    .sg-photo-sm{background:#f4e6d6 url("${SG_AVATAR}") center/cover no-repeat!important;color:transparent;font-size:0;}
     .sg-bubble{max-width:78%;padding:9px 13px;font-size:14px;line-height:1.55;word-break:break-word;white-space:pre-wrap;border-radius:14px;}
     .sg-row.b .sg-bubble{background:#fff;color:#1a1a1a;border-bottom-left-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
     .sg-row.u .sg-bubble{background:#1c3d2e;color:#fff;border-bottom-right-radius:3px;}
@@ -112,6 +115,7 @@
     leadFired:false,
     phoneRequest:false,
     paymentLinkSent:false,
+    hasSummary:false,orderConfirmed:false,deliveryDataRequested:false,paymentStep:false,
     pendingAddressParts:[],
     sessionSavedOnce:false,
     _saveTimer:null,
@@ -124,18 +128,18 @@
     r.innerHTML=`
       <div id="sg-box" class="hidden">
         <div id="sg-hd">
-          <div class="sg-hav">K</div>
+          <div class="sg-hav sg-photo" aria-hidden="true"></div>
           <div class="sg-htxt">
-            <div class="sg-hname">Klára — Puha Üveg 24/7</div>
-            <div class="sg-hsub"><span class="sg-online"></span>puhauveg.site · 24/7</div>
+            <div class="sg-hname">Klára — online tanácsadó</div>
+            <div class="sg-hsub"><span class="sg-online"></span>elérhető 24/7 · puhauveg.site</div>
           </div>
           <button id="sg-x">✕</button>
         </div>
         <div id="sg-sid">ID chatu: ${SID}</div>
         <div id="sg-trust">
-          <span class="sg-ti">✓ 100 000+ rendelés</span>
+          <span class="sg-ti">✓ Chat 24/7</span>
+          <span class="sg-ti">✓ Azonnali ár</span>
           <span class="sg-ti">✓ Biztonságos fizetés</span>
-          <span class="sg-ti">✓ Méretre vágás</span>
         </div>
         <div id="sg-log" role="log" aria-live="polite"></div>
         <div id="sg-qr"></div>
@@ -145,9 +149,9 @@
             <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
-        <div id="sg-pw">puhauveg.site</div>
+        <div id="sg-pw">chat 24/7 · puhauveg.site</div>
       </div>
-      <div id="sg-tooltip">Kiszámolom az asztalvédő árát 30 mp alatt. 👋</div>
+      <div id="sg-tooltip">Klára online — kiszámolom az árat 30 mp alatt. 👋</div>
       <button id="sg-btn">
         <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span id="sg-badge"></span>
@@ -167,7 +171,7 @@
   function addBot(text){
     el('sg-log').querySelector('.sg-typing')?.remove();
     const row=document.createElement('div');row.className='sg-row b';
-    row.innerHTML=`<div class="sg-ava">K</div><div class="sg-bubble">${text.replace(/\n/g,'<br>')}</div>`;
+    row.innerHTML=`<div class="sg-ava sg-photo-sm"></div><div class="sg-bubble">${text.replace(/\n/g,'<br>')}</div>`;
     el('sg-log').appendChild(row);scroll();
     try{ detectQR(text); }catch(_){}
   }
@@ -178,81 +182,112 @@
   }
   function showTyping(){
     const row=document.createElement('div');row.className='sg-row b sg-typing';
-    row.innerHTML=`<div class="sg-ava">K</div><div class="sg-bubble"><span class="sg-dots"><span></span><span></span><span></span></span></div>`;
+    row.innerHTML=`<div class="sg-ava sg-photo-sm"></div><div class="sg-bubble"><span class="sg-dots"><span></span><span></span><span></span></span></div>`;
     el('sg-log').appendChild(row);scroll();
   }
   function lock(v){el('sg-ta').disabled=v;el('sg-go').disabled=v;}
+
+  function insertDeliveryTemplate(){
+    const ta=el('sg-ta');
+    ta.value=`Név:
+Telefon:
+E-mail:
+Utca és házszám:
+Irányítószám:
+Város:`;
+    ta.focus();
+    ta.style.height='auto';
+    ta.style.height=Math.min(ta.scrollHeight,80)+'px';
+  }
 
   function setQR(buttons){
     const qr=el('sg-qr');qr.innerHTML='';
     buttons.forEach(label=>{
       const btn=document.createElement('button');
       btn.className='sg-qbtn';btn.textContent=label;
-      btn.onclick=()=>send(label);
+      btn.onclick=()=>{
+        if(label.indexOf('Adatsablon')>=0){insertDeliveryTemplate();return;}
+        send(label);
+      };
       qr.appendChild(btn);
     });
   }
   function clearQR(){el('sg-qr').innerHTML='';}
+  function hasFullDeliveryData(){return Boolean((ses.phone||ses.contact)&&ses.email&&ses.address);}
 
   function detectQR(botText){
-    const raw = String(botText || '');
-    const t = raw.toLowerCase();
-
+    const raw=String(botText||'');
+    const t=raw.toLowerCase();
     if(ses.paymentLinkSent)return;
-    if(t.includes('rögzítettem a rendelést')||t.includes('rendelés rögzítve'))return;
+    if(t.includes('rögzítettem a rendelést'))return;
 
-    // 1) РОЗМІРИ — абсолютний пріоритет. Якщо бот просить розміри, кнопки мають бути завжди.
-    if(
-      /adja\s+meg[\s\S]{0,80}m[ée]ret/i.test(raw) ||
-      /m[ée]reteket\s+cm-ben/i.test(raw) ||
-      /m[ée]retet\s+cm-ben/i.test(raw) ||
-      /cm-ben/i.test(raw) ||
-      /ak[áa]r\s+t[öo]bb\s+asztalt/i.test(raw) ||
-      /pl\.\s*120[×x]80/i.test(raw)
-    ){
-      setQR(['80×60 cm','100×80 cm','120×80 cm','140×80 cm','160×90 cm','Más méret']);
+    const asksDelivery=/kérem\s+másolja|másolja\s+ki|töltse\s+ki|név:\s*|telefon:\s*|e-mail:\s*|email:\s*|utca\s+és\s+házszám|irányítószám|város:/i.test(raw);
+    if(asksDelivery){
+      ses.deliveryDataRequested=true;
+      ses.orderConfirmed=true;
+      setQR(['📋 Adatsablon beillesztése','Kérdésem van az adatok előtt','Méret módosítása / hozzáadása']);
       return;
     }
 
-    // 2) ОПЛАТА — абсолютний пріоритет. Якщо бот питає оплату, показуємо 2 кнопки.
-    if(
-      /hogyan\s+szeretne\s+fizetni/i.test(raw) ||
-      /fizet[ée]si\s+m[óo]d/i.test(raw) ||
-      /teljes\s+fizet[ée]s/i.test(raw) ||
-      /bankk[áa]rty[aá]val/i.test(raw) ||
-      /ut[áa]nv[ée]t/i.test(raw)
-    ){
-      setQR(['💳 Teljes fizetés bankkártyával','🚚 Utánvét']);
+    const isSummary=(/összesítő|rendelési\s+összesítő|megerősíti\s+a\s+rendelést/i.test(raw))&&(/végösszeg|üveg\s+ára|mpl\s+szállítás/i.test(raw));
+    if(isSummary&&!ses.deliveryDataRequested){
+      ses.hasSummary=true;
+      setQR(['Igen, megerősítem','Új méret hozzáadása','Méret módosítása','Kérdés a szállításról']);
       return;
     }
 
-    const questionCount=(raw.match(/[?]/g)||[]).length;
-    const forceButtons = /méret|cm-ben|méreteket|fizet|bankkárty|utánvét/i.test(raw);
-    if(questionCount>1&&!forceButtons)return;
+    const asksPayment=(/hogyan\s+szeretne\s+fizetni|fizetési\s+mód|bankkártyával|utánvét/i.test(raw))&&ses.deliveryDataRequested&&hasFullDeliveryData();
+    if(asksPayment){
+      ses.paymentStep=true;
+      setQR(['💳 Teljes fizetés bankkártyával','🚚 Utánvét','Melyiket válasszam?']);
+      return;
+    }
 
-    // Felület
-    if(t.includes('milyen felület')||t.includes('felületű az asztala')||t.includes('matt fa, üveg')||t.includes('asztala?')){
-      setQR(['Matt fa','Üveg / lakk / fényes','Laminált']);
-    // Intenzitás
-    } else if((t.includes('intenz')||t.includes('konyha')||t.includes('nappali')||t.includes('dolgozó'))&&!t.includes('méret')&&!t.includes('cm')){
-      setQR(['Intenzív (konyha/gyerekek)','Kevésbé gyakori (dolgozó/nappali)']);
-    // Vastagság
-    } else if(t.includes('1,5mm')&&t.includes('2mm')&&!t.includes('méret')&&!t.includes('cm')&&!ses.price){
-      setQR(['1,5mm — kedvezőbb ár','2mm — masszívabb']);
-    // Kör / négyzet
-    } else if((t.includes('kör alakú')||t.includes('négyzetes')||t.includes('kerek')||t.includes('kör vagy négyzet'))&&!t.includes('méret')){
-      setQR(['Kör alakú','Négyzet alakú']);
-    // További asztalok
-    } else if(t.includes('további asztal')||t.includes('van még')||t.includes('még egy')||t.includes('másik asztal')){
-      setQR(['Igen, van még','Nem, ennyi']);
-    // Általános
-    } else if(t.includes('kérdésem van')||t.includes('miben segíthetek')||t.includes('segíthetek')){
-      setQR(['Szeretnék rendelni','Kérdésem van a termékről']);
-    } else if(t.includes('téglalap alakú')){
-      setQR(['Igen, téglalap','Nem, más forma']);
+    // Vastagság — a lengyel logika szerint ez elsőbbséget kap az intenzitással szemben.
+    if(((/melyik\s+vastagságot|vastagságot\s+választja|1[,\.]?5mm[\s\S]{0,80}2mm|2mm[\s\S]{0,80}1[,\.]?5mm/i.test(raw)))&&!ses.price){
+      setQR(['1,5mm — kedvezőbb ár','2mm — masszívabb','Melyiket válasszam?']);
+      return;
+    }
+
+    if(/milyen\s+felület|felületű\s+az\s+asztala|matt\s+fa|üveg\/lakk|laminált/i.test(raw)){
+      setQR(['Matt fa','Üveg / lakk / fényes','Laminált','Nem tudom / segítsen','Kérdésem van']);
+      return;
+    }
+
+    if((/konyhai|intenzív|mindennapi|dolgozószoba|nappali|használat/i.test(raw))&&!/vastagság|1[,\.]?5mm|2mm|méret|cm/i.test(raw)&&!ses.price){
+      setQR(['Konyha / mindennap','Étkező / gyerekek','Nappali / ritkábban','Íróasztal','Terasz / kert','Nem tudom']);
+      return;
+    }
+
+    if((/adja\s+meg[\s\S]{0,80}méret|méreteket\s+cm-ben|méretet\s+cm-ben|hossz|szélesség|cm-ben/i.test(raw))&&!ses.price){
+      setQR(['80×60 cm','90×60 cm','100×80 cm','120×80 cm','120×100 cm','140×80 cm','160×90 cm','Több méretem van','Nem tudom pontosan']);
+      return;
+    }
+
+    if(/kör\s+alakú|négyzetes|kör\s+vagy\s+négyzet|kerek/i.test(raw)&&!/méret/i.test(raw)){
+      setQR(['Kör alakú','Négyzet alakú','Nem tudom']);
+      return;
+    }
+
+    if(/további\s+asztal|másik\s+asztal|van\s+még|még\s+egy/i.test(raw)){
+      setQR(['Igen, van még','Nem, ennyi','Több méretem van']);
+      return;
+    }
+
+    if(/akciós|kiárusítás|féláron|-50%/i.test(raw)){
+      setQR(['Igen, akciós -50%','Nem, standard','Standard ár érdekel']);
+      return;
+    }
+
+    if(/fotó|rajz|nem\s+szabványos|lekerekített|ovális/i.test(raw)){
+      setQR(['Elküldöm e-mailben','Operátori kapcsolatot kérek','Egyszerű téglalapom van']);
+      return;
+    }
+
+    if(/kérdésem\s+van|miben\s+segíthetek|segíthetek/i.test(raw)&&!ses.hasSummary){
+      setQR(['Árat szeretnék','1,5mm / 2mm különbség','Elcsúszik?','Szállítás és idő','Visszaküldés / reklamáció','Tisztítás']);
     }
   }
-
   function clearPaymentUi(){
     el('sg-log').querySelectorAll('#sg-pay-state, .sg-pay-loading, .sg-pay-ready').forEach(n=>n.remove());
   }
@@ -319,7 +354,7 @@
       el('sg-log').querySelector('.sg-typing')?.remove();
       addBot('Jó napot! 👋 Klára vagyok, a Puha Üveg 24/7 asszisztense.\n\nKevesebb mint egy perc alatt kiszámolom a Puha Üveg árát az asztalára.\n\nMilyen felületű az asztala?');
       addTime();
-      setQR(['Matt fa','Üveg / lakk / fényes','Laminált','Kérdésem van']);
+      setQR(['Matt fa','Üveg / lakk / fényes','Laminált','Nem tudom / segítsen','Kérdésem van']);
     }
     el('sg-ta').focus();
   }
@@ -344,7 +379,7 @@
   }
   function getEmail(t){const m=t.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);return m?m[0]:null;}
 
-  const NOT_NAMES=new Set(['chci','chce','chcem','mám','mam','ano','ne','áno','nie','intenzivně','intenzivne','méně','menej','často','casto','dřevo','drevo','sklo','laminát','laminat','online','utánvét','dobierka','objednávka','objednavka','kulatý','kulaty','okrúhly','okörly','téglalap','obdelnik','obdĺžnik','obdlznik','pevnější','pevnejsie','levnější','lacnejsie','vypočítaj','vypocitaj','jiné','jine','ještě','jeste','iné','ine','ešte','este','či','ci','jak','jaký','jaky','jaká','jaka','jaké','jake','ako','aký','aka','aké','ake','ktoré','ktore','kde','kedy','prosím','prosim','děkuji','dekuji','ďakujem','dakujem','super','dobre','rozumiem','samozrejme','zaujíma','zaujima','ma','sám','sam','radšej','radsej','kontakt','telefonicky','aká','kolko','koľko','stojí','stoji','potrebujem','mám','môj','moj','stůl','stul','stôl','stol','čtverec','ctverec','štvorec','stvorec','hrany','skrinka','kuchyňská','kuchynska','kuchynská','kuchynska']);
+  const NOT_NAMES=new Set(['akarok','kérek','kerek','van','nincs','igen','nem','online','utánvét','utanvet','rendelés','rendeles','kérdés','kerdes','kontakt','telefon','mennyibe','mennyi','ár','ar','asztal','téglalap','teglalap','négyzet','negyzet','kör','kor','méret','meret','vastagság','vastagsag','termék','termek','szállítás','szallitas','fizetés','fizetes','cím','cim']);
   const ADDR_EXCLUDE=/^(?:🛒\s*)?Szeretnék rendelni$|^(?:❓\s*)?Kérdésem van$|^Matt fa$|^Üveg\s*\/\s*lakk\s*\/\s*fényes$|^Laminált$|^Intenzív\s*\(konyha\/gyerekek\)$|^Kevésbé gyakori\s*\(dolgozó\/nappali\)$|^1,5mm\s*—\s*kedvezőbb ár$|^2mm\s*—\s*masszívabb$|^Kör alakú$|^Négyzet alakú$|^Igen,\s*van még$|^Nem,\s*ennyi$|^(?:💳\s*)?Online\s*\(bankkártyával\)$|^(?:💳\s*)?Teljes\s+fizetés\s+bankkártyával$|^(?:🚚\s*)?Utánvét$|^\d{2,4}[×x]\d{2,4}\s*cm$|^Más méret$|^Kérdésem van a termékről$/i;
   function normalizeAddressPart(t){
     return String(t||'')
@@ -395,11 +430,11 @@
     let first=raw.split(',')[0]||'';
     first=first
       .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,' ')
-      .replace(/(?:tel\.?|telefon|phone|č\.?\s*tel\.?)\s*[:.]?/ig,' ')
-      .replace(/(?:\+420[\s-]?|00420[\s-]?|0)?[1-9]\d{2}[\s-]?\d{3}[\s-]?\d{3}/g,' ')
-      .replace(/\b(ul\.?|ulica|nám\.?|náměstí|namesti|cesta|třída|trida)\b[\s\S]*$/i,' ')
+      .replace(/(?:tel\.?|telefon|phone)\s*[:.]?/ig,' ')
+      .replace(/(?:\+36[\s-]?|0036[\s-]?|06[\s-]?)[1-9]\d[\s-]?\d{3}[\s-]?\d{3,4}/g,' ')
+      .replace(/\b(utca|u\.|út|ut|tér|ter|körút|korut|köz|koz|sor)\b[\s\S]*$/i,' ')
       .replace(/\d{4}[\s\S]*$/,' ')
-      .replace(/[^A-Za-zžźćąśęłóńŽŹĆĄŚĘŁÓŃáäčďéíĺľňóôŕšťúýžÁÄČĎÉÍĹĽŇÓÔŔŠŤÚÝŽ .'-]/g,' ')
+      .replace(/[^A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű .'-]/g,' ')
       .replace(/\s+/g,' ')
       .trim();
     const words=first.split(/\s+/).filter(Boolean).slice(0,3);
@@ -422,8 +457,8 @@
   function isProductLine(line){
     const l=String(line||'').trim();
     if(!/^[-—•▪■]/.test(l))return false;
-    if(/doprava|spolu|cena skla|čas|adresa|odkaz|platb/i.test(l))return false;
-    return /\d{2,4}\s*[xX×х]\s*\d{2,4}|kör|téglalap|obdelnik|čtverec|ctverec|průměr|prumer|cm|mm|lesklé|rýhované/i.test(l)&&/Ft|HUF|huf/i.test(l);
+    if(/szállítás|szallitas|végösszeg|vegosszeg|üveg ára|uveg ara|idő|ido|cím|cim|link|fizet/i.test(l))return false;
+    return /\d{2,4}\s*[xX×х]\s*\d{2,4}|kör|téglalap|négyzet|átmérő|atmero|cm|mm|fényes|fenyes|mintás|mintas|akciós|akcios/i.test(l)&&/Ft|HUF|huf/i.test(l);
   }
 
   function getProductLines(t){
@@ -518,7 +553,7 @@
     }).join(' | ');
   }
 
-  const BAD_NAME_RE=/\b(zajímá\s+mě|zajima\s+me|hledám|hledam|raději\s+telefonicky|radeji\s+telefonicky|kontakt\s+telefonicky|telefonicky|st[ůuôo]l|čtverec|ctverec|téglalap|obdelnik|kör|hrany|skříňka|skrinka|kuchyňská|kuchynska|jaká\s+je|jaka\s+je|jaká\s+cena|jaka\s+cena|kolik\s+stojí|kolik\s+stoji|potřebuji|potrebuji|m[ůu]j\s+st[ůu]l|dobrý\s+den|dobry\s+den|jestli\s+|to\s+je|nemám|nemam|co\s+to|platb|doprav|adresa|rozměr|rozmer|tloušťk|tloustk|produkt)\b/i;
+  const BAD_NAME_RE=/\b(érdekel|erdekel|keresek|telefonos|visszahívás|visszahivas|asztal|téglalap|teglalap|négyzet|negyzet|kör|kor|konyha|mennyibe|ár|ar|fizetés|fizetes|szállítás|szallitas|cím|cim|méret|meret|vastagság|vastagsag|termék|termek)\b/i;
 
   function titleCaseName(name){
     return String(name||'').split(/\s+/).filter(Boolean).map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
@@ -531,7 +566,7 @@
   }
 
   function wantsPhoneContact(text){
-    return/(zavolajte\s+mi|zatelefonujte|kontakt\s+telefonicky|radšej\s+telefonicky|radsej\s+telefonicky|prosím\s+o\s+kontakt|prosim\s+o\s+kontakt|ozvite\s+sa|telefonicky\s+objedna|cez\s+telefón|cez\s+telefon)/i.test(String(text||''));
+    return/(telefonon|telefonos|visszahívást|visszahivast|hívjanak|hivjanak|kérek\s+hívást|kerek\s+hivast|kapcsolatot\s+kérek|kapcsolatot\s+kerek)/i.test(String(text||''));
   }
 
   function isBadName(n){
@@ -542,16 +577,16 @@
     const parts=v.split(/\s+/).filter(Boolean);
     if(parts.length<2||parts.length>3)return true;
     if(parts.some(p=>NOT_NAMES.has(p)||p.length<2||/mm|cm|Ft|HUF|huf/i.test(p)))return true;
-    if(!/^[a-záäčďéíĺľňóôŕšťúýžA-ZÁÄČĎÉÍĹĽŇÓÔŔŠŤÚÝŽąćęłńóśźż .'-]+$/i.test(v))return true;
+    if(!/^[A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű .'-]+$/i.test(v))return true;
     return false;
   }
 
   function cleanNameCandidate(t){
     let v=String(t||'')
       .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,' ')
-      .replace(/(?:tel\.?|telefon|phone|č\.?\s*tel\.?)\s*[:.]?/ig,' ')
-      .replace(/(?:\+420[\s-]?|00420[\s-]?|0)?[1-9]\d{2}[\s-]?\d{3}[\s-]?\d{3}/g,' ')
-      .replace(/\b(ul\.?|ulica|nám\.?|náměstí|namesti|cesta|třída|trida)\b[\s\S]*$/i,' ')
+      .replace(/(?:tel\.?|telefon|phone)\s*[:.]?/ig,' ')
+      .replace(/(?:\+36[\s-]?|0036[\s-]?|06[\s-]?)[1-9]\d[\s-]?\d{3}[\s-]?\d{3,4}/g,' ')
+      .replace(/\b(utca|u\.|út|ut|tér|ter|körút|korut|köz|koz|sor)\b[\s\S]*$/i,' ')
       .replace(/\d{4}[\s\S]*$/,' ')
       .split(',')[0]
       .replace(/^[,;:\s]+|[,;:\s]+$/g,'')
@@ -564,12 +599,12 @@
     const raw=String(t||'').trim();
     if(!raw||ADDR_EXCLUDE.test(raw))return null;
     const lastBot=hist.filter(m=>m.role==='assistant').slice(-1)[0]?.content||'';
-    const botAskedShipping=/jméno|jmeno|příjmení|prijmeni|údaje pro doruč|udaje pro doruc|doručen|dorucen|telefon|email|adresa/i.test(lastBot);
-    const hasContactOrAddress=!!(getPhone(raw)||getEmail(raw)||/\d{4}|\b(ul\.?|ulica|nám\.?|námestie)\b/i.test(raw));
-    if(!botAskedShipping&&!hasContactOrAddress&&!/(?:som|volám sa|volam sa|meno|priezvisko)[:\s]/i.test(raw))return null;
-    let explicit=raw.match(/(?:som|volám sa|volam sa|meno(?:\s+a\s+priezvisko)?\s*:?)([A-Za-zžźćąśęłóńáäčďéíĺľňóôŕšťúýž .'-]+(?:\s+[A-Za-zžźćąśęłóńáäčďéíĺľňóôŕšťúýž .'-]+)?)/i);
+    const botAskedShipping=/név|nev|telefon|e-mail|email|szállítási adatok|szallitasi adatok|utca|házszám|hazszam|irányítószám|iranyitoszam|város|varos|cím|cim/i.test(lastBot);
+    const hasContactOrAddress=!!(getPhone(raw)||getEmail(raw)||/\d{4}|\b(utca|u\.|út|ut|tér|ter|körút|korut|köz|koz|sor)\b/i.test(raw));
+    if(!botAskedShipping&&!hasContactOrAddress&&!/(?:nevem|nevem:|név|nev|a nevem|hívnak|hivnak)[:\s]/i.test(raw))return null;
+    let explicit=raw.match(/(?:név|nev|nevem|a nevem|hívnak|hivnak)\s*:?\s*([A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű .'-]+(?:\s+[A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű .'-]+)?)/i);
     let candidate=explicit?explicit[1]:cleanNameCandidate(raw);
-    const words=candidate.replace(/[^A-Za-zžźćąśęłóńáäčďéíĺľňóôŕšťúýž .'-]/g,' ').split(/\s+/).map(w=>w.trim()).filter(Boolean).slice(0,3);
+    const words=candidate.replace(/[^A-Za-zÁÉÍÓÖŐÚÜŰáéíóöőúüű .'-]/g,' ').split(/\s+/).map(w=>w.trim()).filter(Boolean).slice(0,3);
     if(words.length<2)return null;
     if(words.some(w=>w.length<2||NOT_NAMES.has(w.toLowerCase())||/mm|cm|Ft/i.test(w)))return null;
     const name=words.join(' ');
@@ -581,9 +616,9 @@
     if(!raw||ADDR_EXCLUDE.test(raw))return null;
     const withoutContact=normalizeAddressPart(raw);
     if(/\d{4}/.test(raw)){rememberAddressPart(withoutContact||raw);return ses.address||withoutContact||raw;}
-    if(/\b(ul\.?|ulica|nám\.?|náměstí|namesti|cesta|třída|trida)\b/i.test(raw)){rememberAddressPart(withoutContact||raw);return ses.address||withoutContact||raw;}
+    if(/\b(utca|u\.|út|ut|tér|ter|körút|korut|köz|koz|sor)\b/i.test(raw)){rememberAddressPart(withoutContact||raw);return ses.address||withoutContact||raw;}
     const lastBot=hist.filter(m=>m.role==='assistant').slice(-1)[0]?.content||'';
-    const botAskedAddress=/adresa|ulice|město|mesto|psč|psc|údaje pro doruč|udaje pro doruc|doručen|dorucen/i.test(lastBot);
+    const botAskedAddress=/cím|cim|utca|házszám|hazszam|város|varos|irányítószám|iranyitoszam|szállítási adatok|szallitasi adatok/i.test(lastBot);
     if(botAskedAddress&&looksLikeAddressPart(raw)){rememberAddressPart(withoutContact||raw);return ses.address||withoutContact||raw;}
     const hasContact=getEmail(raw)||getPhone(raw);
     if(hasContact&&withoutContact&&withoutContact.length>3&&!ADDR_EXCLUDE.test(withoutContact)){rememberAddressPart(withoutContact);return ses.address||withoutContact;}
@@ -595,7 +630,7 @@
 
   function formatProductForTG(){
     const src=ses.product||getDimsFallback();
-    if(!src)return'upřesňuje se';
+    if(!src)return'pontosítás alatt';
     const lines=src.split('|').map(p=>p.trim()).filter(Boolean);
     return lines.map(p=>{
       const isCircle=p.includes('kör')||p.includes('⌀');
@@ -608,15 +643,15 @@
   function buildLeadData(extra={}){
     const utm=getUTM();
     const pNum=parseFloat(ses.price)||0;
-    // FIX: doprava VŽDY z hodnoty skla, NIKDY z toho čo napísal bot.
-    // Zadarmo iba ak sklo >= 120 Ft, inak 9 Ft. Spolu = sklo + doprava.
+    // FIX: a szállítást mindig az üveg értékéből számoljuk, nem a bot szövegéből.
+    // Ingyenes csak 30000 Ft üvegértéktől, különben 3540 Ft.
     let delivery;
     let total;
     if(pNum>0){
-      delivery=pNum>=30000?'gratis':'2360';
-      total=String(Math.round(delivery==='gratis'?pNum:pNum+2360));
+      delivery=pNum>=30000?'gratis':'3540';
+      total=String(Math.round(delivery==='gratis'?pNum:pNum+3540));
     }else{
-      delivery=ses.delivery||'2360';
+      delivery=ses.delivery||'3540';
       total=ses.total||'';
     }
     if(delivery)ses.delivery=delivery;
@@ -632,8 +667,8 @@
       phone:ses.phone||'',
       email:ses.email||'',
       contact:ses.contact||'',
-      product:ses.product||getDimsFallback()||(ses.phoneRequest?'Žádost o telefonický kontakt':''),
-      product_formatted:ses.phoneRequest&&!ses.product?'📞 Žádost o telefonický kontakt':formatProductForTG(),
+      product:ses.product||getDimsFallback()||(ses.phoneRequest?'Telefonos kapcsolat kérése':''),
+      product_formatted:ses.phoneRequest&&!ses.product?'📞 Telefonos kapcsolat kérése':formatProductForTG(),
       price:ses.price||'',
       delivery,
       total:ses.total||'',
@@ -726,12 +761,12 @@
       const lastBot=hist.filter(m=>m.role==='assistant').slice(-1)[0]?.content||'';
       const pNum=parseFloat(ses.price)||0;
       const parsedTotal=getTotal(lastBot);
-      // FIX: deterministická doprava a suma — nevěříme "zdarma/Spolu" z bota.
-      // Zadarmo iba ak sklo >= 120 Ft, inak pripočítaj 9 Ft k sume v Stripe.
-      const deliveryVal=pNum>0?(pNum>=30000?'gratis':'2360'):(ses.delivery||'2360');
+      // FIX: determinisztikus szállítás és végösszeg — nem a bot szövegére hagyatkozunk.
+      // Ingyenes csak 30000 Ft üvegértéktől, különben 3540 Ft kerül a Stripe összegbe.
+      const deliveryVal=pNum>0?(pNum>=30000?'gratis':'3540'):(ses.delivery||'3540');
       ses.delivery=deliveryVal;
       const finalTotal=pNum>0
-        ? String(Math.round(deliveryVal==='gratis'?pNum:pNum+2360))
+        ? String(Math.round(deliveryVal==='gratis'?pNum:pNum+3540))
         : (ses.total||parsedTotal||'');
       ses.total=String(finalTotal);
       const paymentPayload=buildLeadData({product:ses.product||getDimsFallback()||'Puha Üveg',product_formatted:formatProductForTG(),total:finalTotal,payment_method:'stripe',contact:ses.email||ses.phone||ses.contact||''});
@@ -747,7 +782,7 @@
       }else{
         clearPaymentUi();
         console.error('[MK] Stripe:',d.error);
-        addBot('Problém s online platbou. Napíšte nám prosím na sklomekke@gmail.com a pomôžeme.');
+        addBot('Probléma történt az online fizetéssel. Írjon nekünk a puhauveg@gmail.com címre, és segítünk.');
       }
     }catch(e){clearPaymentUi();console.error('[MK] Stripe error:',e);}
   }
@@ -762,10 +797,10 @@
     addUser(text);showTyping();
 
     if(wantsPhoneContact(text))ses.phoneRequest=true;
-    if(/dobírk|dobierk|utánvét|utanvet|átvétel|atvetel|futár|futar|pri doruc|hotovost|na utánvétet/i.test(text))ses.paymentMethod='cod';
-    if(/online|karta|bankkártyával|prevod|zaplat/i.test(text))ses.paymentMethod='stripe';
+    if(/utánvét|utanvet|átvétel|atvetel|futár|futar|készpénz|keszpenz|na utánvétet/i.test(text))ses.paymentMethod='cod';
+    if(/online|kártya|kartya|bankkártyával|bankkartyaval|teljes fizetés|teljes fizetes|stripe/i.test(text))ses.paymentMethod='stripe';
 
-    if(/ano.*kulat|kulat.*ano|áno.*okr[úu]hl|okr[úu]hl.*áno|ano.*okörl|okörl.*ano/i.test(text)||text==='Igen, kör alakú'){
+    if(/igen.*kör|kör.*igen|kör alakú|kerek/i.test(text)||text==='Kör alakú'){
       const allText=hist.map(m=>m.content).join(' ');
       const sameDims=[...allText.matchAll(/(\d{2,3})\s*[xX×]\s*(\d{2,3})\s*cm/g)].filter(m=>m[1]===m[2]);
       if(sameDims.length>0){
@@ -776,11 +811,11 @@
       }
     }
 
-    if(ses.paymentLinkSent&&ses.paymentMethod!=='cod'&&/dobírk|dobierk|změn.*platb|zmen.*platb|cod|na utánvétet|na dobierku/i.test(text)){
+    if(ses.paymentLinkSent&&ses.paymentMethod!=='cod'&&/utánvét|utanvet|átvétel|atvetel|cod|fizetés módosítása|fizetes modositasa|na utánvétet/i.test(text)){
       ses.paymentMethod='cod';
       const pNum=parseFloat(ses.price)||0;
-      const deliveryVal=pNum>0?(pNum>=30000?'gratis':'2360'):(ses.delivery||'2360');
-      const total=pNum>0?String(Math.round(deliveryVal==='gratis'?pNum:pNum+2360)):(ses.total||'');
+      const deliveryVal=pNum>0?(pNum>=30000?'gratis':'3540'):(ses.delivery||'3540');
+      const total=pNum>0?String(Math.round(deliveryVal==='gratis'?pNum:pNum+3540)):(ses.total||'');
       ses.delivery=deliveryVal;ses.total=String(total);
       showCOD(total);
       if(ses.leadFired){await fireUpdate('payment_changed_to_cod',{payment_method:'cod',total});}
@@ -800,7 +835,7 @@
     hist.push({role:'user',content:text});
 
     if(ses.phoneRequest&&(ses.phone||ses.contact)&&!ses.leadFired){
-      if(!ses.product)ses.product='Žádost o telefonický kontakt';
+      if(!ses.product)ses.product='Telefonos kapcsolat kérése';
       await fireLead({status:'phone_request',request_type:'phone_request'});
     }
 
@@ -810,7 +845,7 @@
     try{
       const res=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:hist})});
       const data=await res.json();
-      const reply=data.content?.[0]?.text||'Prepáčte, skúste znova.';
+      const reply=data.content?.[0]?.text||'Elnézést, kérem próbálja újra.';
       hist.push({role:'assistant',content:reply});
 
       const price=getPrice(reply),totalParsed=getTotal(reply),deliveryParsed=getDelivery(reply),product=getProduct(reply),addrBot=getAddressFromBot(reply),nameAddr=getNameFromBotAddress(reply);
@@ -821,7 +856,7 @@
       if(product)ses.product=product;
       if(addrBot)ses.address=addrBot;
       if(nameAddr&&(!ses.name||isBadName(ses.name)))ses.name=nameAddr;
-      if(/telefonicky|ozveme se|zavoláme|telefonní číslo/i.test(reply))ses.phoneRequest=true;
+      if(/telefonos|visszahív|visszahiv|hívjuk|hivjuk|telefonszám/i.test(reply))ses.phoneRequest=true;
       if(/na utánvétet|utánvét|utánvét|utanvet|átvétel|atvetel|futár|futar/i.test(reply))ses.paymentMethod='cod';
       if(/A fizetési link|online|bankkártya|bankkartya|fizet/i.test(reply)&&ses.paymentMethod!=='cod')ses.paymentMethod='stripe';
 
@@ -839,8 +874,8 @@
         ses.paymentLinkSent=true;
         if(ses.paymentMethod==='cod'){
           const pNum=parseFloat(ses.price)||0;
-          const deliveryVal=pNum>0?(pNum>=30000?'gratis':'2360'):(ses.delivery||'2360');
-          const total=pNum>0?String(Math.round(deliveryVal==='gratis'?pNum:pNum+2360)):(ses.total||'');
+          const deliveryVal=pNum>0?(pNum>=30000?'gratis':'3540'):(ses.delivery||'3540');
+          const total=pNum>0?String(Math.round(deliveryVal==='gratis'?pNum:pNum+3540)):(ses.total||'');
           ses.delivery=deliveryVal;ses.total=String(total);
           showCOD(total);
           fireLead();
@@ -850,7 +885,7 @@
       }
     }catch(e){
       el('sg-log').querySelector('.sg-typing')?.remove();
-      addBot('Nincs kapcsolat. Kérem frissítse az oldalt.');
+      addBot('Rövid kapcsolódási hiba történt. Kérem, küldje el újra az üzenetet.');
       if(!hasContactData())scheduleSessionSave('idle_error_no_contact');
       else if(ses.paymentLinkSent)savePostPaymentUpdate('post_payment_error');
     }finally{
@@ -867,7 +902,7 @@
         const t=el('sg-tooltip');
         if(t)t.style.display='block';
       }
-    },5000);
+    },8000);
 
     // Auto-open po 30 sek
     setTimeout(()=>{
@@ -875,7 +910,7 @@
         sessionStorage.setItem('mk_auto_done','1');
         openChat();
       }
-    },30000);
+    },50000);
   }
 
   function init(){
