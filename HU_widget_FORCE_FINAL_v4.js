@@ -1,8 +1,9 @@
 (function () {
   'use strict';
-  // HU_PUHA_UVEG_POLISH_LOGIC_V21_2026_06_28 — lengyel chatlogika, magyar lokalizáció, 3540 Ft szállítás
+  // HU_PUHA_UVEG_PL_BASE_V22_2026_06_28 — lengyel chatlogika, magyar lokalizáció, 3540 Ft szállítás
 
   const WORKER_URL = 'https://bot-hu.metsukisutemi.workers.dev';
+  const ASSISTANT_AVATAR_URL = 'https://static.tildacdn.com/stor3530-6335-4030-b366-363966383437/5efb2fc2ea144f1ae0d2f12885474f78.jpg';
   const SG_AVATAR = 'https://static.tildacdn.com/stor3530-6335-4030-b366-363966383437/5efb2fc2ea144f1ae0d2f12885474f78.jpg';
 
   function getUTM() {
@@ -21,7 +22,7 @@
     return '№ ' + String(Math.floor(100000 + Math.random() * 900000));
   }
 
-  // HUF суми показуємо красиво: 3792.44 -> "3 792"
+  // HUF összegek szép megjelenítése: 3792.44 -> "3 792"
   function m(v){
     const raw=String(v==null?'':v).replace(/\s+/g,'').replace(',', '.');
     const n=Number(raw);
@@ -47,7 +48,8 @@
     #sg-box{position:absolute;bottom:70px;right:0;width:340px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.15);display:flex;flex-direction:column;overflow:hidden;max-height:calc(100vh - 120px);transition:opacity .2s,transform .2s;transform-origin:bottom right;}
     #sg-box.hidden{opacity:0;transform:scale(.95) translateY(8px);pointer-events:none;}
     #sg-hd{background:#1c3d2e;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
-    .sg-hav{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0;}
+    .sg-hav{width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;border:2px solid rgba(255,255,255,.18);}
+    .sg-hav img{width:100%;height:100%;object-fit:cover;display:block;}
     .sg-photo{background:#f4e6d6 url("${SG_AVATAR}") center/cover no-repeat!important;color:transparent;font-size:0;box-shadow:0 0 0 2px rgba(255,255,255,.14);}
     .sg-htxt{flex:1;min-width:0;}
     .sg-hname{color:#fff;font-size:14px;font-weight:600;}
@@ -64,7 +66,8 @@
     #sg-log::-webkit-scrollbar-thumb{background:#d0c8bc;border-radius:2px;}
     .sg-row{display:flex;align-items:flex-end;gap:7px;}
     .sg-row.u{flex-direction:row-reverse;}
-    .sg-ava{width:26px;height:26px;border-radius:50%;background:#1c3d2e;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;}
+    .sg-ava{width:30px;height:30px;border-radius:50%;background:#1c3d2e;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;overflow:hidden;border:1px solid rgba(28,61,46,.12);}
+    .sg-ava img{width:100%;height:100%;object-fit:cover;display:block;}
     .sg-photo-sm{background:#f4e6d6 url("${SG_AVATAR}") center/cover no-repeat!important;color:transparent;font-size:0;}
     .sg-bubble{max-width:78%;padding:9px 13px;font-size:14px;line-height:1.55;word-break:break-word;white-space:pre-wrap;border-radius:14px;}
     .sg-row.b .sg-bubble{background:#fff;color:#1a1a1a;border-bottom-left-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
@@ -135,7 +138,7 @@
           </div>
           <button id="sg-x">✕</button>
         </div>
-        <div id="sg-sid">ID chatu: ${SID}</div>
+        <div id="sg-sid">Chat azonosító: ${SID}</div>
         <div id="sg-trust">
           <span class="sg-ti">✓ Chat 24/7</span>
           <span class="sg-ti">✓ Azonnali ár</span>
@@ -173,7 +176,6 @@
     const row=document.createElement('div');row.className='sg-row b';
     row.innerHTML=`<div class="sg-ava sg-photo-sm"></div><div class="sg-bubble">${text.replace(/\n/g,'<br>')}</div>`;
     el('sg-log').appendChild(row);scroll();
-    try{ detectQR(text); }catch(_){}
   }
   function addUser(text){
     const row=document.createElement('div');row.className='sg-row u';
@@ -352,7 +354,9 @@ Város:`;
       started=true;showTyping();
       await new Promise(r=>setTimeout(r,600));
       el('sg-log').querySelector('.sg-typing')?.remove();
-      addBot('Jó napot! 👋 Klára vagyok, a Puha Üveg 24/7 asszisztense.\n\nKevesebb mint egy perc alatt kiszámolom a Puha Üveg árát az asztalára.\n\nMilyen felületű az asztala?');
+      const firstMsg='Jó napot! 👋 Klára vagyok a Puha Üveg csapatából.\n\nKevesebb mint egy perc alatt kiszámolom a Puha Üveg árát az asztalára — este és hétvégén is.\n\nMilyen felületű az asztala?';
+      addBot(firstMsg);
+      hist.push({role:'assistant',content:firstMsg});
       addTime();
       setQR(['Matt fa','Üveg / lakk / fényes','Laminált','Nem tudom / segítsen','Kérdésem van']);
     }
@@ -502,8 +506,8 @@ Város:`;
     return productLines.length?productLines.map(l=>l.replace(/^[-—•▪■]\s*/,'').trim()).join(' | '):null;
   }
 
-  // ── FIX: визначення товщини з будь-якого тексту ────────────────────────────
-  // Повертає 'rýhované 1,5mm' / 'lesklé 2mm' / 'lesklé 1,5mm' або null.
+  // ── Vastagság felismerése a beszélgetésből ────────────────────────────
+  // Vastagság felismerése a beszélgetésből.
   function detectThickness(text){
     const s=String(text||'').toLowerCase();
     const mintas=/mintás|mintas/.test(s);
@@ -519,7 +523,7 @@ Város:`;
     if(t)ses.thickness=t;
   }
 
-  // ── FIX: fallback товару з усього діалогу (тільки повідомлення клієнта) ─────
+  // ── Fallback termékadatok a beszélgetésből ─────
   function getDimsFallback(){
     const userText=hist.filter(m=>m.role==='user').map(m=>m.content).join('\n');
     const found=[];
@@ -532,7 +536,7 @@ Város:`;
     for(const mm of userText.matchAll(/(\d{2,4})\s*[xX×х\/]\s*(\d{2,4})\s*cm/gi))pushDim(mm[1],mm[2]);
     // 2) БЕЗ "cm": 120x80, 120 × 80, 120/80, 120 na 80
     for(const mm of userText.matchAll(/(?:^|[^\d.,])(\d{2,4})\s*(?:[xX×х\/]|na)\s*(\d{2,4})(?![\d.,])/gi))pushDim(mm[1],mm[2]);
-    // круги: kör ⌀90, priemer 90 cm
+    // Kör alakú méretek: kör ⌀90, átmérő 90 cm
     const circles=[...userText.matchAll(/(?:kör|priemer|okr[úu]hl\w*)\s*[⌀]?\s*(\d{2,4})\s*cm?/gi)]
       .map(mm=>'kör ⌀'+mm[1]+' cm');
     let all=[...new Set([...found,...circles])];
@@ -635,7 +639,7 @@ Város:`;
     return lines.map(p=>{
       const isCircle=p.includes('kör')||p.includes('⌀');
       const icon=isCircle?'⭕':'▪️';
-      const hasQty=/×\d+|x\d+|\d+\s*ks/.test(p);
+      const hasQty=/×\d+|x\d+|\d+\s*db/.test(p);
       return icon+' '+p+(hasQty?'':' (×1)');
     }).join('\n');
   }
@@ -727,7 +731,7 @@ Város:`;
     saveSessionNow(reason);
   }
 
-  // ── Warm lead: email є, ціна відома, замовлення не завершене ────────────────
+  // ── Warm lead: van e-mail és ár, de a rendelés nincs lezárva ────────────────
   async function scheduleWarmLead(){
     if(ses._warmLeadSent)return;
     if(!ses.email&&!ses.contact)return;
@@ -870,7 +874,7 @@ Város:`;
       else if(ses.paymentLinkSent){savePostPaymentUpdate('post_payment_bot_reply');}
 
       const isConfirm=/Rögzítettem a rendelést|A fizetési link|Végösszeg[:\s]/i.test(reply);
-      if(isConfirm&&(ses.phone||ses.email)&&!ses.paymentLinkSent){
+      if(isConfirm&&hasFullDeliveryData()&&!ses.paymentLinkSent){
         ses.paymentLinkSent=true;
         if(ses.paymentMethod==='cod'){
           const pNum=parseFloat(ses.price)||0;
@@ -896,7 +900,7 @@ Város:`;
   function autoOpen(){
     if(sessionStorage.getItem('mk_auto_done')||sessionStorage.getItem('mk_auto_block'))return;
 
-    // Tooltip po 5 sek
+    // Előnézeti buborék 5 másodperc után
     setTimeout(()=>{
       if(!open&&!sessionStorage.getItem('mk_auto_block')){
         const t=el('sg-tooltip');
@@ -904,7 +908,7 @@ Város:`;
       }
     },8000);
 
-    // Auto-open po 30 sek
+    // Automatikus megnyitás 50 másodperc után
     setTimeout(()=>{
       if(!open&&!sessionStorage.getItem('mk_auto_block')){
         sessionStorage.setItem('mk_auto_done','1');
